@@ -1,43 +1,49 @@
-import subprocess
-#subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 9.9.0\\Imaris.exe', 'id101'])
-import ImarisLib
-import numpy as np
-import math as m
-import random
-import nrrd
-from tifffile import imwrite
-import sys
-sys.path.insert(0, 'k:/workstation/code/shared/pipeline_utilities/imaris')
-#K:/workstation/code/shared/pipeline_utilities/imaris/imaris_hdr_update.py
-import imaris_hdr_update
-from skimage.io import imread
-import os
-from time import sleep
-import shutil
-import imagej
-ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive')
+import subprocess;
+#subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+import numpy as np;
+import math as m;
+import random;
+import nrrd;
+from tifffile import imwrite;
+import sys;
+# these append statements are required to correctly find ImarisLib and all of its dependencies
+# this sys.path.append is the correct way to modify your PYTHONPATH variable
+sys.path.append(r'C:\Program Files\Bitplane\Imaris 9.9.0\XT\python3'.replace(r'\\','/'));
+sys.path.insert(0, 'k:/workstation/code/shared/pipeline_utilities/imaris');
+import ImarisLib;
+#K:/workstation/code/shared/pipeline_utilities/imaris/imaris_hdr_update.py;
+import imaris_hdr_update;
+from skimage.io import imread;
+import os;
+from time import sleep;
+import shutil;
+import imagej;
+ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
 
 
-exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
+#exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
+exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
+
 
 fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
-macro_path="S:/yt133/To_delete_Statistics/macroscript.ijm" #where you save your macro
+macro_path=r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
 #root needs to be updated with different specimens
-root="S:/yt133/To_delete_Statistics/history/data_5xFAD_neuron_density/220114-3_1/" #working folder
-
+project_code="22.gaj.49";
+strain="BXD77";
+specimen_id="220905-1_1";
+contrast="NeuN";
+runno="N59128NLSAM";
+root="B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format(project_code, specimen_id, contrast); #working folder
+os.makedirs(root,exist_ok=True);
+#pattern for 20.5xFAD
+filename="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,contrast,runno)
+#pattern for 22.gaj.49
+filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA",contrast)
 #filename needs to be updated with specimen label
 #import the labelmap to locate a brain region, within this brain region, generate N random subvolumes with size s (/pixels)
-
-#filename=r"B:\20.5xfad.01\BXD77\220114-1_1\Aligned-Data\labels\RCCF\N59128NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-#filename=r"B:\20.5xfad.01\BXD77\220114-2_1\Aligned-Data\labels\RCCF\N59130NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-filename=r"B:\20.5xfad.01\BXD77\220114-3_1\Aligned-Data\labels\RCCF\N59132NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-
-#filename=r"B:\20.5xfad.01\BXD77\220114-20_1\Aligned-Data\labels\RCCF\N60206NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-#filename=r"B:\20.5xfad.01\BXD77\220114-21_1\Aligned-Data\labels\RCCF\N60208NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-#filename=r"B:\20.5xfad.01\BXD77\220114-22_1\Aligned-Data\labels\RCCF\N60215NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
-#filename=r"B:\20.5xfad.01\BXD77\220114-23_1\Aligned-Data\labels\RCCF\N60213NLSAM_labels.nhdr".replace("\\","/")#change this when change specimen
 im, header = nrrd.read(filename)
+# this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
 im = im[::-1, ::-1, :].astype(int) # this im will be sent as a variable
 
 
@@ -48,7 +54,16 @@ def GetServer():
 
 vServer=GetServer()
 vImarisLib=ImarisLib.ImarisLib()
+# TOOD: possible to ping the system to ask for application numbers of running applications named "Imaris"
+# this way, we could open and run imaris in any way we want, get it ready to go, and then
 v = vImarisLib.GetApplication(101)
+# how do we know that img 0 is the NeuN and imgg1 is the label set? could it be the other way around?
+# ORDER of files loaded in is very important
+# possible to foolproof this? get image object, if "label" is in its name, then tha is img2 and the other is img1.
+# if there are more than 2 loaded volumes, then quit not knowing what to do
+
+# use v to open the LSFM file and then the label file
+
 img = v.GetImage(0)#load NeuN
 img2 = v.GetImage(1)#load labelmap data
 #print(type(img2))
@@ -74,14 +89,15 @@ Yuqi thinks it's better to make this below:
 Write the script as a function, and make the regions as a large dictionary
 """
 def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
+# TODO: "root" is our output folder, it is set at top of the script. this should be an input to this function
+# WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
 ### label: list, classifier: path str, volume_bar: a num that represents the average volume size
 ### newdir: where the file will be saved
-
-
 
   if len(label)==1:
     newdir=root+str(label[0])+"/"
   elif len(label)>1:
+    # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
     newdir=root+str(label[0])+'-'+str(label[-1])+'/'
   if not os.path.exists(newdir):
       os.makedirs(newdir)
@@ -102,6 +118,9 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
   num=0;
   s=[6,6,6] # Make sure this cube is larger than subvolume. The current cube size is (15um * 10)^3
 
+
+  # argwhere finds the indices of array elements that are non-zero, grouped by element.
+  # this line finds all indices (of the numpy array holding our LABEL file)
   indices = np.argwhere(np.isin(im, label))  # Check if elements in 'im' are in 'label'
   print(indices[:, 2])
   x_min = min(indices[:, 0])
@@ -111,12 +130,14 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
   z_min = min(indices[:, 2])
   z_max = max(indices[:, 2])
   arr = np.empty((0, 3), int)
-
+  # N is the number of random sub-regions to create and classify
   while num < N:
+      # find the start z index of the "num"th random sub region
       z = int(np.floor(z_min + np.random.rand() * (z_max - s[2] - z_min)))
       if z not in np.squeeze(indices[:, 2]):
           continue
       for iteration in range(10):
+          # then i work on individual slices
           im_xy = im[x_min:x_max, y_min:y_max, z]
           indices_xy = np.argwhere(np.isin(im_xy, label))
           if indices_xy.size == 0:
@@ -134,10 +155,10 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
   #but we are counting the cells under img (NeuN), so we need to convert the location to img.
 
 
-
-
-  loc2=(arr*[25,25,25]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
-
+  # TODO: hard-coded voxel sizes, these should automatically be inferred from the label nrrd volume
+  loc2=(arr*[15,15,15]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
+  #loc2=(arr*[25,25,25]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
+  print(loc2)
   #subvol = img2.GetDataSubVolumeShorts(0,0,250,0,0,700,1000,2)
   for i in range(N):
       subvol = img.GetDataSubVolumeShorts(loc2[i,0],loc2[i,1],loc2[i,2],0,0,56,56,25) #the size of subvolume is (56,56,25) pixels with resolution (1.8,1.8,4)um.
@@ -182,78 +203,77 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
 
 
 
-
 #Above is the function. Below is defining all regions and call function
 regions = {
     "Orbital": {
         "labels": [6],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "PrimarySomatosensory": {
         "labels": [16],
-        "classifier":  r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier":  r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "SupplementalSomatosensory": {
         "labels": [18],
-        "classifier":  r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier":  r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "Auditory": {
         "labels": [20],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "Retroplenial": {
         "labels": [24],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\5xFAD\03subiculum.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\','/'),
         "volume_bar": 15,
         "volume_avgbar": 100
     },
     "PrimaryVisualArea": {
         "labels": [26],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "Entorhinal": {
         "labels": [27],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "Subiculum": {
         "labels": [28],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\5xFAD\03subiculum.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
     "CA1": {
         "labels": [31],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\5xFAD\03subiculum.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\','/'),
         "volume_bar": 10,
         "volume_avgbar": 100
     },
     "CA3": {
         "labels": [32],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\5xFAD\03subiculum.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\','/'),
         "volume_bar": 10,
         "volume_avgbar": 100
     },
     "BLA": {
         "labels": [41],
-        "classifier":r"K:\ProjectSpace\yt133\Labelmap\191209_BLA\BLAc_.classifier".replace('\\','/'),
+        "classifier":r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\191209_BLA\BLAc_.classifier".replace('\\','/'),
         "volume_bar": 10,
         "volume_avgbar": 100
     },
     "LGd": {
         "labels": [82],
-        "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         "volume_bar": 20,
         "volume_avgbar": 100
     },
@@ -266,7 +286,7 @@ regions = {
     #Something weird happens with Thalamus, a lot of java log, so Yuqi set up the last entry.
     # "delete": {
         # "labels": [83],
-        # "classifier": r"K:\ProjectSpace\yt133\Labelmap\200316auditory\short1.classifier".replace('\\','/'),
+        # "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
         # "volume_bar": 20,
         # "volume_avgbar": 100
     # }
