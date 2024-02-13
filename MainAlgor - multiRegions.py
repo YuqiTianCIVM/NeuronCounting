@@ -140,10 +140,10 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     """
 
     if len(label)==1:
-    newdir=root+str(label[0])+"/"
+        newdir=root+str(label[0])+"/"
     elif len(label)>1:
-    # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
-    newdir=root+str(label[0])+'-'+str(label[-1])+'/'
+        # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
+        newdir=root+str(label[0])+'-'+str(label[-1])+'/'
     if not os.path.exists(newdir):
         os.makedirs(newdir)
     folder=newdir+"Tif/"
@@ -238,9 +238,9 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
         num_neuron.append(N_n)
 
     if len(label)==1:
-    np.savetxt(root+str(label[0])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
+        np.savetxt(root+str(label[0])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
     elif len(label)>1:
-    np.savetxt(root+str(label[0])+'-'+str(label[-1])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
+        np.savetxt(root+str(label[0])+'-'+str(label[-1])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
 
     shutil.move(processed,newdir+"tif_processed/")
     shutil.move(output,newdir+"tif_out/")
