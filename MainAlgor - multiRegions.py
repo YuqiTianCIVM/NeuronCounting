@@ -54,6 +54,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     macro_path=r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
     #root needs to be updated with different specimens
+    # INPUT ARGUMENTS GET RID OF THESE!!
     project_code="22.gaj.49";
     strain="BXD77";
     specimen_id="DMBA";
@@ -75,11 +76,13 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
 
     #filename needs to be updated with specimen label
     #import the labelmap to locate a brain region, within this brain region, generate N random subvolumes with size s (/pixels)
-    im, header = nrrd.read(filename)
+    # im changed to label_data, header changed to label_nhdr
+    # i think label_nhdr is never used?
+        # USE IT TO GET VOXEL SIZES
+    label_data, label_nhdr = nrrd.read(filename)
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
-    im = im[::-1, ::-1, :].astype(int) # this im will be sent as a variable
-
+    label_data = label_data[::-1, ::-1, :].astype(int) # this im will be sent as a variable
 
     vServer=GetServer()
     vImarisLib=ImarisLib.ImarisLib()
@@ -166,7 +169,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
 
     # argwhere finds the indices of array elements that are non-zero, grouped by element.
     # this line finds all indices (of the numpy array holding our LABEL file)
-    indices = np.argwhere(np.isin(im, label))  # Check if elements in 'im' are in 'label'
+    indices = np.argwhere(np.isin(label_data, label))  # Check if elements in 'im' are in 'label'
     print(indices[:, 2])
     x_min = min(indices[:, 0])
     x_max = max(indices[:, 0])
@@ -183,13 +186,13 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
             continue
         for iteration in range(10):
             # then i work on individual slices
-            im_xy = im[x_min:x_max, y_min:y_max, z]
-            indices_xy = np.argwhere(np.isin(im_xy, label))
+            label_data_xy = label_data[x_min:x_max, y_min:y_max, z]
+            indices_xy = np.argwhere(np.isin(label_data_xy, label))
             if indices_xy.size == 0:
                 continue
             x = x_min + np.random.choice(indices_xy[:, 0].tolist())
             y = y_min + np.random.choice(indices_xy[:, 1].tolist())
-            result = np.all(np.isin(im[x:x+s[0], y:y+s[1], z:z+s[2]], label))
+            result = np.all(np.isin(label_data[x:x+s[0], y:y+s[1], z:z+s[2]], label))
             if result:
                 num += 1
                 arr = np.append(arr, np.array([[x, y, z]]), axis=0)  # Pixel position under labelmap coordinate frame
