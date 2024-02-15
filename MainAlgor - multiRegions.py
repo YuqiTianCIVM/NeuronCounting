@@ -27,11 +27,11 @@ def GetServer():
    vServer = vImarisLib.GetServer();
    return vServer;
 
-def launch_imaris_and_open_data():
+def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, label_nhdr_path: str, roi_dict: dict, work_dir: str):
     # give imaris enough time to open
     #subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
     # Popen is non blocking
-    subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+    imaris_process = subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
     time.sleep(10);
 
     # first time we touch imaris
@@ -42,10 +42,6 @@ def launch_imaris_and_open_data():
     # this way, we could open and run imaris in any way we want, get it ready to go, and then
     v = vImarisLib.GetApplication(101)
 
-    # update to automatically load in your data into imaris
-    # HARD CODED TEST DATA
-    label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims";
-    image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims";
     load_options = "";
     v.FileOpen(label_imaris_path, load_options);
     img2 = v.GetImage(0)
@@ -66,14 +62,23 @@ def launch_imaris_and_open_data():
     #return vExtentMin, vExtentMax, vExtentMin2
 
 
-    for region_name in regions:
-        label = regions[region_name]["labels"]
-        classifier = regions[region_name]["classifier"]
-        volume_bar = regions[region_name]["volume_bar"]
-        volume_avgbar = regions[region_name]["volume_avgbar"]
-        mainAlgor(label, classifier, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img)
+    for region_name in roi_dict:
+        label = roi_dict[region_name]["labels"]
+        classifier = roi_dict[region_name]["classifier"]
+        volume_bar = roi_dict[region_name]["volume_bar"]
+        volume_avgbar = roi_dict[region_name]["volume_avgbar"]
+        try:
+            mainAlgor(label_nhdr_path, label, classifier, work_dir, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img)
+        except:
+            # this does not really work. I got an error, but I think (?) that the imagej process didn't die itself and tried to keep going.
+            print("ERROR in neuron counting for ROI: {}".format(region_name))
+            print("BURYING HEAD IN THE SAND. KEEP GOING TO THE NEXT REGION!")
+            # nope continue doesn't work either
+            # there is something hanging up and causing other things to fail. maybe it's the imagej process?
+            continue;
+            #imaris_process.kill()
 
-
+    imaris_process.kill()
 
 
 
@@ -89,10 +94,9 @@ def launch_imaris_and_open_data():
 Yuqi thinks it's better to make this below:
 Write the script as a function, and make the regions as a large dictionary
 """
-def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None):
+def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: int = 10, volume_bar: int = 20, volume_avgbar: int = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None):
 #def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
-    """# TODO: "root" is our output folder, it is set at top of the script. this should be an input to this function
-    # WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
+    """# WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
     ### label: list, classifier: path str, volume_bar: a num that represents the average volume size
     ### newdir: where the file will be saved"""
 
@@ -107,33 +111,14 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vE
     fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
     macro_path=r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
-    #root needs to be updated with different specimens
-    # INPUT ARGUMENTS GET RID OF THESE!!
-    project_code="22.gaj.49";
-    strain="BXD77";
-    specimen_id="DMBA";
-    contrast="PV";
-    runno="N59128NLSAM";
 
-    root="B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format(project_code, specimen_id, contrast); #working folder
-    os.makedirs(root,exist_ok=True);
-
-    #pattern for 20.5xFAD
-    # contrast is not in the label filename 
-    #filename="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,contrast,runno)
-    filename="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,runno)
-
-    """#pattern for 22.gaj.49
-    # contrast is not in the label filename
-    #filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA",contrast)"""
-    filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA")
 
     """#filename needs to be updated with specimen label
     #import the labelmap to locate a brain region, within this brain region, generate N random subvolumes with size s (/pixels)
     # im changed to label_data, header changed to label_nhdr
     # i think label_nhdr is never used?"""
         # USE IT TO GET VOXEL SIZES
-    label_data, label_nhdr = nrrd.read(filename)
+    label_data, label_nhdr = nrrd.read(label_nhdr_file)
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
     label_data = label_data[::-1, ::-1, :].astype(int) # this im will be sent as a variable
@@ -208,10 +193,10 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vE
     """
 
     if len(label)==1:
-        newdir=root+str(label[0])+"/"
+        newdir=out_dir+str(label[0])+"/"
     elif len(label)>1:
         # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
-        newdir=root+str(label[0])+'-'+str(label[-1])+'/'
+        newdir=out_dir+str(label[0])+'-'+str(label[-1])+'/'
     if not os.path.exists(newdir):
         os.makedirs(newdir)
     folder=newdir+"Tif/"
@@ -278,6 +263,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vE
         subvol=np.transpose(subvol,[2,1,0])#Swap the dimensions because Imaris export will swap X and Z.
         #np.array(subvol).astype('int16').tofile(folder+'Region0.raw') #works
         print(type(subvol))
+        # this filename variable is only used right here, in the next two lines. 
         filename = folder+'Region_'+str(i)+'.tif'
         imwrite(filename,np.float32(subvol),imagej=True,
         metadata={'spacing': 4,'unit': 'um','axes': 'ZYX'},
@@ -306,9 +292,9 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vE
         num_neuron.append(N_n)
 
     if len(label)==1:
-        np.savetxt(root+str(label[0])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
+        np.savetxt(out_dir+str(label[0])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
     elif len(label)>1:
-        np.savetxt(root+str(label[0])+'-'+str(label[-1])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
+        np.savetxt(out_dir+str(label[0])+'-'+str(label[-1])+"_counts.csv", num_neuron,fmt='%d', delimiter="\n")
 
     shutil.move(processed,newdir+"tif_processed/")
     shutil.move(output,newdir+"tif_out/")
@@ -406,7 +392,30 @@ regions = {
     # }
 }
 
-launch_imaris_and_open_data()
+
+
+
+"""# label nhdr file. used for grabbing voxel indices of a certain ROI
+#root needs to be updated with different specimens
+# INPUT ARGUMENTS GET RID OF THESE!!
+project_code="22.gaj.49";
+strain="BXD77";
+specimen_id="DMBA";
+contrast="PV";
+runno="N59128NLSAM";
+# pattern for 20.5xFAD
+label_nhdr_path="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,runno)
+# pattern for 22.gaj.49
+label_nhdr_path="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA")"""
+
+
+# hard-coded test data
+label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims";
+label_nhdr_path = "B:/22.gaj.49/DMBA/Aligned-Data-RAS/labels/RCCF/DMBA_RCCF_labels.nhdr";
+image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims";
+work_dir = "B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format("22.gaj.49", "201026-1_1", "PV");
+
+launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir);
 
 exit()
 
