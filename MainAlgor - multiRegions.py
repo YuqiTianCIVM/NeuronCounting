@@ -1,5 +1,5 @@
 import subprocess;
-#subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+import time;
 import numpy as np;
 import math as m;
 import random;
@@ -19,12 +19,65 @@ from time import sleep;
 import shutil;
 import imagej;
 
+import ij_classifier
+
 
 def GetServer():
    vImarisLib = ImarisLib.ImarisLib();
    vServer = vImarisLib.GetServer();
    return vServer;
 
+def launch_imaris_and_open_data():
+    # give imaris enough time to open
+    #subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+    # Popen is non blocking
+    subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+    time.sleep(10);
+
+    # first time we touch imaris
+    vServer=GetServer()
+    vImarisLib=ImarisLib.ImarisLib()
+
+    # TOOD: possible to ping the system to ask for application numbers of running applications named "Imaris"
+    # this way, we could open and run imaris in any way we want, get it ready to go, and then
+    v = vImarisLib.GetApplication(101)
+
+    # update to automatically load in your data into imaris
+    # HARD CODED TEST DATA
+    label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims";
+    image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims";
+    load_options = "";
+    v.FileOpen(label_imaris_path, load_options);
+    img2 = v.GetImage(0)
+    vExtentMin2 =[img2.GetExtendMinX(),img2.GetExtendMinY(),img2.GetExtendMinZ()]
+
+    v.FileOpen(image_imaris_path, load_options);
+    img = v.GetImage(0)#load NeuN
+    vExtentMin=[img.GetExtendMinX(),img.GetExtendMinY(),img.GetExtendMinZ()]
+    vExtentMax=[img.GetExtendMaxX(),img.GetExtendMaxY(),img.GetExtendMaxZ()]
+
+    print('vExtentMin:',vExtentMin)
+    print('vExtentMax:',vExtentMax)
+
+    # no we should not return these,
+    # this function should be ran first, it will set up imaris to have data pulled from it 
+    # and then we can loop through all the ROIs (from this function), repeatedly calling the MainAlgor function
+    # MainAlgor function is then relegated to working on a single ROI 
+    #return vExtentMin, vExtentMax, vExtentMin2
+
+
+    for region_name in regions:
+        label = regions[region_name]["labels"]
+        classifier = regions[region_name]["classifier"]
+        volume_bar = regions[region_name]["volume_bar"]
+        volume_avgbar = regions[region_name]["volume_avgbar"]
+        mainAlgor(label, classifier, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img)
+
+
+
+
+
+"""
 # TODO: incorporate the above code into the function
 # TODO: input arguments to function should be 2 imaris files and 
     # full path to image ims file
@@ -32,22 +85,23 @@ def GetServer():
     # dictionary of ROI to count and which classifier to use for that ROI
     
     # out_dir -- should it be set by caller and be an input arg (YES), or should it be decided where to put and created by this function?
-"""
+
 Yuqi thinks it's better to make this below:
 Write the script as a function, and make the regions as a large dictionary
 """
-def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
-    # TODO: "root" is our output folder, it is set at top of the script. this should be an input to this function
+def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None):
+#def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
+    """# TODO: "root" is our output folder, it is set at top of the script. this should be an input to this function
     # WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
     ### label: list, classifier: path str, volume_bar: a num that represents the average volume size
-    ### newdir: where the file will be saved
+    ### newdir: where the file will be saved"""
 
 
     ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
 
 
     #exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
-    exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
+    #exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
 
 
     fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
@@ -58,7 +112,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     project_code="22.gaj.49";
     strain="BXD77";
     specimen_id="DMBA";
-    contrast="NeuN";
+    contrast="PV";
     runno="N59128NLSAM";
 
     root="B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format(project_code, specimen_id, contrast); #working folder
@@ -69,21 +123,22 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     #filename="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,contrast,runno)
     filename="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,runno)
 
-    #pattern for 22.gaj.49
+    """#pattern for 22.gaj.49
     # contrast is not in the label filename
-    #filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA",contrast)
+    #filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA",contrast)"""
     filename="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA")
 
-    #filename needs to be updated with specimen label
+    """#filename needs to be updated with specimen label
     #import the labelmap to locate a brain region, within this brain region, generate N random subvolumes with size s (/pixels)
     # im changed to label_data, header changed to label_nhdr
-    # i think label_nhdr is never used?
+    # i think label_nhdr is never used?"""
         # USE IT TO GET VOXEL SIZES
     label_data, label_nhdr = nrrd.read(filename)
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
     label_data = label_data[::-1, ::-1, :].astype(int) # this im will be sent as a variable
 
+    # first time we touch imaris
     vServer=GetServer()
     vImarisLib=ImarisLib.ImarisLib()
 
@@ -91,7 +146,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     # this way, we could open and run imaris in any way we want, get it ready to go, and then
     v = vImarisLib.GetApplication(101)
 
-    # how do we know that img 0 is the NeuN and imgg1 is the label set? could it be the other way around?
+    """# how do we know that img 0 is the NeuN and imgg1 is the label set? could it be the other way around?
     # ORDER of files loaded in is very important
     # possible to foolproof this? get image object, if "label" is in its name, then tha is img2 and the other is img1.
     # if there are more than 2 loaded volumes, then quit not knowing what to do
@@ -107,32 +162,42 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
         # - LoadDataSet="eDataSetYes | eDataSetNo | eDataSetWithDialog" Down-sampling factor for x, y, z, ch and t. "1 1 1 1 1" does not resample. The size of the loaded dataset is equal to "(croplimitsmax - croplimitsmin) / resample" along each dimension (e.g. "(x-x0)/rx"). %% The following MATLAB code opens the example image "retina.ims" with the Imaris3 reader, with cropping and resampling enabled for x and y (while loading all slices, all channels, all time points) vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);
         # EXAMPLE CALL:
             #  vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);
-    load_options = ""
     # in_file must be of format B:/path/to/file
         # B:\path\to\file (with backslashes) does not work
         # /b/path/to/file (full unix way) does not work
-    #in_file = "B:/22.gaj.49/DMBA/ims/DMBA_dwi.ims"
-    #v.FileOpen(in_file, load_options)
 
-    # PROBLEM: this works, but when I use it twice in a row, it automatically deletes the previous file that is loaded. 
+
+    #in_file = "B:/22.gaj.49/DMBA/ims/DMBA_dwi.ims"
+    #load_options = ""
+    #v.FileOpen(in_file, load_options)"""
+
+    """# PROBLEM: this works, but when I use it twice in a row, it automatically deletes the previous file that is loaded. 
     # BOOO, this also does NOT WORK:
         # open the first volume on loading of imaris with the subprocess call
             # subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'B:\\22.gaj.49\\DMBA\\ims\\DMBA_dwi.ims', 'id101']);
         # use v.FileOpen() to load in the second volume
-        # this gives the same result of v.FileOpen() clearing the previously loaded volume before loading in the new one. result is still only 1 volume loaded into the scene
+        # this gives the same result of v.FileOpen() clearing the previously loaded volume before loading in the new one. result is still only 1 volume loaded into the scene"""
 
 
+    """# update to automatically load in your data into imaris
+    # HARD CODED TEST DATA
+    label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims";
+    image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims";
+    load_options = "";
+    v.FileOpen(label_imaris_path, load_options);
+    img2 = v.GetImage(0)
+    vExtentMin2 =[img2.GetExtendMinX(),img2.GetExtendMinY(),img2.GetExtendMinZ()]
+
+    v.FileOpen(image_imaris_path, load_options);
     img = v.GetImage(0)#load NeuN
-    img2 = v.GetImage(1)#load labelmap data
-    #print(type(img2))
     vExtentMin=[img.GetExtendMinX(),img.GetExtendMinY(),img.GetExtendMinZ()]
     vExtentMax=[img.GetExtendMaxX(),img.GetExtendMaxY(),img.GetExtendMaxZ()]
 
-    vExtentMin2 =[img2.GetExtendMinX(),img2.GetExtendMinY(),img2.GetExtendMinZ()]
     print('vExtentMin:',vExtentMin)
-    print('vExtentMax:',vExtentMax)
-    aChannel=0
+    print('vExtentMax:',vExtentMax)"""
 
+
+    aChannel=0
 
     """
     classifiers={
@@ -161,7 +226,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
         os.makedirs(processed)
 
     print(f" folder={folder} output={output} processed={processed} macro_path={macro_path}")
-    ij_macro,args = save_classifier_macro(folder,output,processed,classifier,macro_path,N=N)
+    ij_macro,args = ij_classifier.save_classifier_macro(folder,output,processed,classifier,macro_path,N=N)
 
     num=0;
     s=[6,6,6] # Make sure this cube is larger than subvolume. The current cube size is (15um * 10)^3
@@ -169,6 +234,7 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
 
     # argwhere finds the indices of array elements that are non-zero, grouped by element.
     # this line finds all indices (of the numpy array holding our LABEL file)
+    # label data is the label.raw.gz label is the number of the current ROI
     indices = np.argwhere(np.isin(label_data, label))  # Check if elements in 'im' are in 'label'
     print(indices[:, 2])
     x_min = min(indices[:, 0])
@@ -199,11 +265,10 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
                 print('found at ', x, ',', y, ',', z)
                 break
 
-    #this arr contains the location in img 2 (label map). Each row is the 3D position of starting point of each cube.
+    # THIS BIT IS WITHIN IMARIS
+    """#this arr contains the location in img 2 (label map). Each row is the 3D position of starting point of each cube.
     #but we are counting the cells under img (NeuN), so we need to convert the location to img.
-
-
-    # TODO: hard-coded voxel sizes, these should automatically be inferred from the label nrrd volume
+    # TODO: hard-coded voxel sizes, these should automatically be inferred from the label nrrd volume"""
     loc2=(arr*[15,15,15]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
     #loc2=(arr*[25,25,25]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
     print(loc2)
@@ -254,12 +319,12 @@ def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
 #Above is the function. Below is defining all regions and call function
 # TODO: maybe move this dict into its own file?
 regions = {
-    "Orbital": {
-        "labels": [6],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
+#    "Orbital": {
+#        "labels": [6],
+#        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
+#        "volume_bar": 20,
+#        "volume_avgbar": 100
+#    },
     "PrimarySomatosensory": {
         "labels": [16],
         "classifier":  r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
@@ -340,6 +405,10 @@ regions = {
         # "volume_avgbar": 100
     # }
 }
+
+launch_imaris_and_open_data()
+
+exit()
 
 # TODO: create a main function here
 for region_name in regions:
