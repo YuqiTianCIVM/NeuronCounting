@@ -1,26 +1,22 @@
 import subprocess;
 import time;
 import numpy as np;
-import math as m;
-import random;
 import nrrd;
 from tifffile import imwrite;
 import sys;
+from skimage.io import imread;
+import os;
+import shutil;
+import imagej;
+
 # these append statements are required to correctly find ImarisLib and all of its dependencies
 # this sys.path.append is the correct way to modify your PYTHONPATH variable
 sys.path.append(r'C:\Program Files\Bitplane\Imaris 9.9.0\XT\python3'.replace(r'\\','/'));
 sys.path.insert(0, 'k:/workstation/code/shared/pipeline_utilities/imaris');
 import ImarisLib;
+import ij_classifier;
 #K:/workstation/code/shared/pipeline_utilities/imaris/imaris_hdr_update.py;
 import imaris_hdr_update;
-from skimage.io import imread;
-import os;
-from time import sleep;
-import shutil;
-import imagej;
-
-import ij_classifier
-
 
 def GetServer():
    vImarisLib = ImarisLib.ImarisLib();
@@ -86,10 +82,7 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
     # very unsure how to handle this
     imaris_process.kill()
 
-
-
 """
-# TODO: incorporate the above code into the function
 # TODO: input arguments to function should be 2 imaris files and 
     # full path to image ims file
     # full path to label ims file
@@ -113,9 +106,10 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
         ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
 
 
+    """unnecessary code
     #exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
     #exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
-    #fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
+    #fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')"""
     
     macro_path=r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
