@@ -42,9 +42,16 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
     # initialize python-to-imagej bridge
     ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
 
-    # load_options allows you to select which imagetype loader to use
-    # also lets you force cropping or resampling on load
-    # FileOpen will for a scene clear before it loads in the new volume. Cannot be used to load in multiple imaris files into the same scene at the same time
+    """FileOpen will for a scene clear before it loads in the new volume. Cannot be used to load in multiple imaris files into the same scene at the same time
+    aOptions -- [in]  Set up extra options to specify file format, resampling or cropping parameters for loading. 
+        Use "" for default options (automatic file type detection, no cropping and no resampling) 
+        - reader="Imaris3" Advice to use the "Bitplane Imaris 3" format. There are several other formats available:  All Formats, Imaris5, Imaris3, Imaris, AndorIQ, Andor, DeltaVision, Biorad, IPLab, IPLabMac, Gatan, CXD, SlideBook, MRC, LeicaLif, LeicaSingle, LeicaSeries, LeicaVista, MicroManager, MetamorphSTK, MetamorphND, ICS, NikonND2, OlympusCellR, OlympusOIB, OlympusOIF, Olympus, OlympusVSI, OmeTiff, OmeXml, OpenlabLiff, OpenlabRaw, PerkinElmer2, Prairie, Till, AxioVision, Lsm510, Lsm410, BmpSeries, TiffSeries, ZeissCZI. 
+        - croplimitsmin="x0 y0 z0 c0 t0" Minimum crop position for x, y, z, ch and t. Use "0 0 0 0 0" for croplimitsmin and croplimitsmax to disable cropping. 
+        - croplimitsmax="x y z c t" The point next to the maximum crop position for x, y, z, ch and t. If one of the components is set to zero, the maximum crop position is automatically set to the size of the dataset along the corresponding dimension.  
+        - resample="rx ry rz rc rt" 
+        - LoadDataSet="eDataSetYes | eDataSetNo | eDataSetWithDialog" Down-sampling factor for x, y, z, ch and t. "1 1 1 1 1" does not resample. The size of the loaded dataset is equal to "(croplimitsmax - croplimitsmin) / resample" along each dimension (e.g. "(x-x0)/rx"). %% The following MATLAB code opens the example image "retina.ims" with the Imaris3 reader, with cropping and resampling enabled for x and y (while loading all slices, all channels, all time points) vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);
+        EXAMPLE CALL:
+            vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);"""
     load_options = "";
     v.FileOpen(label_imaris_path, load_options);
     img2 = v.GetImage(0)
@@ -353,12 +360,3 @@ work_dir = "B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format("22.gaj.49", "20102
 
 launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir);
 
-exit()
-
-# TODO: create a main function here
-for region_name in regions:
-  label = regions[region_name]["labels"]
-  classifier = regions[region_name]["classifier"]
-  volume_bar = regions[region_name]["volume_bar"]
-  volume_avgbar = regions[region_name]["volume_avgbar"]
-  mainAlgor(label, classifier, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar)
