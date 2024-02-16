@@ -114,9 +114,9 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
 
     # TODO: use the label_nhdr file to get the voxel resolution of label files. this number is currently hard-coded below
     label_data, label_nhdr = nrrd.read(label_nhdr_file)
-    dir_array = label_nhdr['siace directions']
     # list comprehension to pull voxel sizes in um from the nrrd header
     # grab the elements from diagonal, *1000 to convert from mm to um, absolute value to make positive, and then cast to integer 
+    dir_array = label_nhdr['siace directions']
     voxel_sizes = [int(abs(dir_array[x][x]*1000)) for x in [0,1,2]]
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
