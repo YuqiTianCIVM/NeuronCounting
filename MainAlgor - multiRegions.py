@@ -24,10 +24,9 @@ def GetServer():
    return vServer;
 
 def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, label_nhdr_path: str, roi_dict: dict, work_dir: str):
-    # give imaris enough time to open
-    #subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
-    # Popen is non blocking
+    # Popen is non blocking. Is the under the hood function that drives subprocess.run()
     imaris_process = subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
+    # give imaris enough time to open
     time.sleep(10);
 
     # initialize python-to-imaris bridge
@@ -115,6 +114,10 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
 
     # TODO: use the label_nhdr file to get the voxel resolution of label files. this number is currently hard-coded below
     label_data, label_nhdr = nrrd.read(label_nhdr_file)
+    dir_array = label_nhdr['siace directions']
+    # list comprehension to pull voxel sizes in um from the nrrd header
+    # grab the elements from diagonal, *1000 to convert from mm to um, absolute value to make positive, and then cast to integer 
+    voxel_sizes = [int(abs(dir_array[x][x]*1000)) for x in [0,1,2]]
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
     label_data = label_data[::-1, ::-1, :].astype(int) # this im will be sent as a variable
@@ -191,8 +194,8 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
     """#this arr contains the location in img 2 (label map). Each row is the 3D position of starting point of each cube.
     #but we are counting the cells under img (NeuN), so we need to convert the location to img.
     # TODO: hard-coded voxel sizes, these should automatically be inferred from the label nrrd volume"""
-    loc2=(arr*[15,15,15]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
-    #loc2=(arr*[25,25,25]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
+    # the pixel position relative to NeuN frame (starting origin)
+    loc2=(arr*voxel_sizes+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])
     print("region starting point: {}".format(loc2), flush=True)
     #subvol = img2.GetDataSubVolumeShorts(0,0,250,0,0,700,1000,2)
     for i in range(N):
