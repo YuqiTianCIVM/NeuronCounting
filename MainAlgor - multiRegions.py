@@ -34,33 +34,30 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
     imaris_process = subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101']);
     time.sleep(10);
 
-    # first time we touch imaris
+    # initialize python-to-imaris bridge
     vServer=GetServer()
     vImarisLib=ImarisLib.ImarisLib()
-
-    # TOOD: possible to ping the system to ask for application numbers of running applications named "Imaris"
-    # this way, we could open and run imaris in any way we want, get it ready to go, and then
     v = vImarisLib.GetApplication(101)
 
+    # initialize python-to-imagej bridge
+    ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
+
+    # load_options allows you to select which imagetype loader to use
+    # also lets you force cropping or resampling on load
+    # FileOpen will for a scene clear before it loads in the new volume. Cannot be used to load in multiple imaris files into the same scene at the same time
     load_options = "";
     v.FileOpen(label_imaris_path, load_options);
     img2 = v.GetImage(0)
     vExtentMin2 =[img2.GetExtendMinX(),img2.GetExtendMinY(),img2.GetExtendMinZ()]
 
     v.FileOpen(image_imaris_path, load_options);
-    img = v.GetImage(0)#load NeuN
+    img = v.GetImage(0)
     vExtentMin=[img.GetExtendMinX(),img.GetExtendMinY(),img.GetExtendMinZ()]
     vExtentMax=[img.GetExtendMaxX(),img.GetExtendMaxY(),img.GetExtendMaxZ()]
 
-    print('vExtentMin:',vExtentMin)
-    print('vExtentMax:',vExtentMax)
-
-    # no we should not return these,
-    # this function should be ran first, it will set up imaris to have data pulled from it 
-    # and then we can loop through all the ROIs (from this function), repeatedly calling the MainAlgor function
-    # MainAlgor function is then relegated to working on a single ROI 
-    #return vExtentMin, vExtentMax, vExtentMin2
-
+    print('label vExtentMin:',vExtentMin2);
+    print('image vExtentMin:',vExtentMin);
+    print('image vExtentMax:',vExtentMax, flush=True);
 
     for region_name in roi_dict:
         label = roi_dict[region_name]["labels"]
@@ -68,16 +65,18 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
         volume_bar = roi_dict[region_name]["volume_bar"]
         volume_avgbar = roi_dict[region_name]["volume_avgbar"]
         try:
-            mainAlgor(label_nhdr_path, label, classifier, work_dir, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img)
+            # what does an error actually mean in this case?
+            mainAlgor(label_nhdr_path, label, classifier, work_dir, N = 30, volume_bar = volume_bar, volume_avgbar = volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img, ij=ij)
         except:
             # this does not really work. I got an error, but I think (?) that the imagej process didn't die itself and tried to keep going.
             print("ERROR in neuron counting for ROI: {}".format(region_name))
-            print("BURYING HEAD IN THE SAND. KEEP GOING TO THE NEXT REGION!")
+            print("BURYING HEAD IN THE SAND. KEEP GOING TO THE NEXT REGION!", flush=True)
             # nope continue doesn't work either
             # there is something hanging up and causing other things to fail. maybe it's the imagej process?
             continue;
             #imaris_process.kill()
 
+    # very unsure how to handle this
     imaris_process.kill()
 
 
@@ -94,103 +93,39 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
 Yuqi thinks it's better to make this below:
 Write the script as a function, and make the regions as a large dictionary
 """
-def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: int = 10, volume_bar: int = 20, volume_avgbar: int = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None):
+def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: int = 10, volume_bar: int = 20, volume_avgbar: int = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None, vServer=None, vImarisLib=None, ij=None):
 #def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     """# WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
     ### label: list, classifier: path str, volume_bar: a num that represents the average volume size
     ### newdir: where the file will be saved"""
 
-
-    ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
+    # this gives us a "gateway" into ImageJ
+    # maybe it is bad for me to reinitialize this every single loop? treat it like you treat the Imaris gateway.
+    if ij is None:
+        print("No ImageJ bridge found. Reinitializing now.", flush=True)
+        ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive');
 
 
     #exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
     #exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
-
-
-    fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
+    #fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
+    
     macro_path=r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
-
-
-    """#filename needs to be updated with specimen label
-    #import the labelmap to locate a brain region, within this brain region, generate N random subvolumes with size s (/pixels)
-    # im changed to label_data, header changed to label_nhdr
-    # i think label_nhdr is never used?"""
-        # USE IT TO GET VOXEL SIZES
+    # TODO: use the label_nhdr file to get the voxel resolution of label files. this number is currently hard-coded below
     label_data, label_nhdr = nrrd.read(label_nhdr_file)
 
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
     label_data = label_data[::-1, ::-1, :].astype(int) # this im will be sent as a variable
 
-    # first time we touch imaris
-    vServer=GetServer()
-    vImarisLib=ImarisLib.ImarisLib()
-
-    # TOOD: possible to ping the system to ask for application numbers of running applications named "Imaris"
-    # this way, we could open and run imaris in any way we want, get it ready to go, and then
-    v = vImarisLib.GetApplication(101)
-
-    """# how do we know that img 0 is the NeuN and imgg1 is the label set? could it be the other way around?
-    # ORDER of files loaded in is very important
-    # possible to foolproof this? get image object, if "label" is in its name, then tha is img2 and the other is img1.
-    # if there are more than 2 loaded volumes, then quit not knowing what to do
-
-    # use v to open the LSFM file and then the label file
-    # empty string is the default, you must include something
-    # aOptions -- [in]  Set up extra options to specify file format, resampling or cropping parameters for loading. 
-        # Use "" for default options (automatic file type detection, no cropping and no resampling) 
-        # - reader="Imaris3" Advice to use the "Bitplane Imaris 3" format. There are several other formats available:  All Formats, Imaris5, Imaris3, Imaris, AndorIQ, Andor, DeltaVision, Biorad, IPLab, IPLabMac, Gatan, CXD, SlideBook, MRC, LeicaLif, LeicaSingle, LeicaSeries, LeicaVista, MicroManager, MetamorphSTK, MetamorphND, ICS, NikonND2, OlympusCellR, OlympusOIB, OlympusOIF, Olympus, OlympusVSI, OmeTiff, OmeXml, OpenlabLiff, OpenlabRaw, PerkinElmer2, Prairie, Till, AxioVision, Lsm510, Lsm410, BmpSeries, TiffSeries, ZeissCZI. 
-        # - croplimitsmin="x0 y0 z0 c0 t0" Minimum crop position for x, y, z, ch and t. Use "0 0 0 0 0" for croplimitsmin and croplimitsmax to disable cropping. 
-        # - croplimitsmax="x y z c t" The point next to the maximum crop position for x, y, z, ch and t. If one of the components is set to zero, the maximum crop position is automatically set to the size of the dataset along the corresponding dimension.  
-        # - resample="rx ry rz rc rt" 
-        # - LoadDataSet="eDataSetYes | eDataSetNo | eDataSetWithDialog" Down-sampling factor for x, y, z, ch and t. "1 1 1 1 1" does not resample. The size of the loaded dataset is equal to "(croplimitsmax - croplimitsmin) / resample" along each dimension (e.g. "(x-x0)/rx"). %% The following MATLAB code opens the example image "retina.ims" with the Imaris3 reader, with cropping and resampling enabled for x and y (while loading all slices, all channels, all time points) vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);
-        # EXAMPLE CALL:
-            #  vImarisApplication.FileOpen('images\\retina.ims', ... ['reader="Imaris3" ' ... 'croplimitsmin="10 10 0 0 0" ' ... 'croplimitsmax="150 100 0 0 0" ' ... 'resample="2 2 1 1 1"']);
-    # in_file must be of format B:/path/to/file
-        # B:\path\to\file (with backslashes) does not work
-        # /b/path/to/file (full unix way) does not work
-
-
-    #in_file = "B:/22.gaj.49/DMBA/ims/DMBA_dwi.ims"
-    #load_options = ""
-    #v.FileOpen(in_file, load_options)"""
-
-    """# PROBLEM: this works, but when I use it twice in a row, it automatically deletes the previous file that is loaded. 
-    # BOOO, this also does NOT WORK:
-        # open the first volume on loading of imaris with the subprocess call
-            # subprocess.call(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'B:\\22.gaj.49\\DMBA\\ims\\DMBA_dwi.ims', 'id101']);
-        # use v.FileOpen() to load in the second volume
-        # this gives the same result of v.FileOpen() clearing the previously loaded volume before loading in the new one. result is still only 1 volume loaded into the scene"""
-
-
-    """# update to automatically load in your data into imaris
-    # HARD CODED TEST DATA
-    label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims";
-    image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims";
-    load_options = "";
-    v.FileOpen(label_imaris_path, load_options);
-    img2 = v.GetImage(0)
-    vExtentMin2 =[img2.GetExtendMinX(),img2.GetExtendMinY(),img2.GetExtendMinZ()]
-
-    v.FileOpen(image_imaris_path, load_options);
-    img = v.GetImage(0)#load NeuN
-    vExtentMin=[img.GetExtendMinX(),img.GetExtendMinY(),img.GetExtendMinZ()]
-    vExtentMax=[img.GetExtendMaxX(),img.GetExtendMaxY(),img.GetExtendMaxZ()]
-
-    print('vExtentMin:',vExtentMin)
-    print('vExtentMax:',vExtentMax)"""
-
-
-    aChannel=0
-
-    """
-    classifiers={
-    "K:\abababa.classifier" : [ 1, 2, 3 ],
-    }
-    for classer_file in classifiers:
-    label=classifiers[classer_file]
-    """
+    # i don't think we ever actually use this after the initialization?
+    if vServer is None or vImarisLib is None:
+        print("my vServer was None! reiniitalizing connection to Imaris", flush=True);
+        vServer=GetServer()
+        vImarisLib=ImarisLib.ImarisLib()
+        # TOOD: possible to ping the system to ask for application numbers of running applications named "Imaris"
+        # this way, we could open and run imaris in any way we want, get it ready to go, and then
+        v = vImarisLib.GetApplication(101)
 
     if len(label)==1:
         newdir=out_dir+str(label[0])+"/"
@@ -210,7 +145,8 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
     if not os.path.exists(processed):
         os.makedirs(processed)
 
-    print(f" folder={folder} output={output} processed={processed} macro_path={macro_path}")
+    print("imagej macro arguments:")
+    print(f" folder={folder} output={output} processed={processed} macro_path={macro_path}", flush=True)
     ij_macro,args = ij_classifier.save_classifier_macro(folder,output,processed,classifier,macro_path,N=N)
 
     num=0;
@@ -256,7 +192,7 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
     # TODO: hard-coded voxel sizes, these should automatically be inferred from the label nrrd volume"""
     loc2=(arr*[15,15,15]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
     #loc2=(arr*[25,25,25]+vExtentMin2-vExtentMin)/np.array([1.8,1.8,4])#the pixel position relative to NeuN frame (starting origin)
-    print(loc2)
+    print("region starting point: {}".format(loc2), flush=True)
     #subvol = img2.GetDataSubVolumeShorts(0,0,250,0,0,700,1000,2)
     for i in range(N):
         subvol = img.GetDataSubVolumeShorts(loc2[i,0],loc2[i,1],loc2[i,2],0,0,56,56,25) #the size of subvolume is (56,56,25) pixels with resolution (1.8,1.8,4)um.
