@@ -83,7 +83,7 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
         volume_avgbar = roi_dict[region_name]["volume_avgbar"]
         try:
             # what does an error actually mean in this case?
-            mainAlgor(label_nhdr, label_data, label, classifier, work_dir, N=30, volume_bar=volume_bar, volume_avgbar=volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img, ij=ij)
+            mainAlgor(label_nhdr, label_data, label, classifier, work_dir, N=30, volume_bar=volume_bar, volume_avgbar=volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img, vServer=vServer, vImarisLib=vImarisLib, ij=ij)
         except:
             # this does not really work. I got an error, but I think (?) that the imagej process didn't die itself and tried to keep going.
             print("ERROR in neuron counting for ROI: {}".format(region_name))
@@ -121,17 +121,6 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
 
     macro_path = r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
-    # TODO: this is NOT necessary to reaload this nrrd every time, load it in the launch_imaris function, and then pass the nhdr dict down here
-    # list comprehension to pull voxel sizes in um from the nrrd header
-    # grab the elements from diagonal, *1000 to convert from mm to um, absolute value to make positive, and then cast to integer
-    dir_array = label_nhdr['space directions']
-    voxel_sizes = [int(abs(dir_array[x][x]*1000)) for x in [0, 1, 2]]
-
-    # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
-    # TODO: this should also go up into the launch_imaris_and... function. load the data, make it righteous, and then pass it down here to find the ROI
-    # this isn't a bottleneck, but is a waste of resources to reload that dataset every iteration
-      # this im will be sent as a variable
-
     # I don't think we ever actually use this after the initialization?
     if vServer is None or vImarisLib is None:
         print("my vServer was None! reiniitalizing connection to Imaris", flush=True);
@@ -143,21 +132,29 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
 
     if len(label) == 1:
         newdir = out_dir + str(label[0]) + "/"
+        out_csv_file = out_dir + str(label[0]) + "_counts.csv"
     elif len(label) > 1:
         # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
         newdir = out_dir + str(label[0]) + '-' + str(label[-1]) + '/'
-    if not os.path.exists(newdir):
-        os.makedirs(newdir)
+        out_csv_file = out_dir + str(label[0]) + '-' + str(label[-1]) + "_counts.csv"
     tif_dir = newdir + "Tif/"
     tif_out_dir = newdir + "tif_out/"
     tif_processed_dir = newdir + "tif_processed/"
 
-    if not os.path.exists(tif_dir):
-        os.makedirs(tif_dir)
-    if not os.path.exists(tif_out_dir):
-        os.makedirs(tif_out_dir)
-    if not os.path.exists(tif_processed_dir):
-        os.makedirs(tif_processed_dir)
+    # os.makedirs recursively makes all parent directories, and exist_ok=True removes need for if exists check
+    os.makedirs(tif_dir, exist_ok=True)
+    os.makedirs(tif_out_dir, exist_ok=True)
+    os.makedirs(tif_processed_dir, exist_ok=True)
+
+    # completion check. If the csv file already exists, then we will assume this ROI completed successfully already
+    if os.path.isfile(out_csv_file):
+        print("SKIPPING. Already found output csv file here: {}".format(out_csv_file), flush=True)
+        return
+
+    # list comprehension to pull voxel sizes in um from the nrrd header
+    # grab the elements from diagonal, *1000 to convert from mm to um, absolute value to make positive, and then cast to integer
+    dir_array = label_nhdr['space directions']
+    voxel_sizes = [int(abs(dir_array[x][x]*1000)) for x in [0, 1, 2]]
 
     print("imagej macro arguments:")
     print(f" folder={tif_dir} output={tif_out_dir} processed={tif_processed_dir} macro_path={macro_path}", flush=True)
@@ -242,14 +239,13 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
 
 
     np.savetxt(out_csv_file, num_neuron, fmt='%d', delimiter="\n")
-    if len(label) == 1:
-        np.savetxt(out_dir + str(label[0]) + "_counts.csv", num_neuron, fmt='%d', delimiter="\n")
-    elif len(label) > 1:
-        np.savetxt(out_dir+str(label[0]) + '-'+str(label[-1]) + "_counts.csv", num_neuron, fmt='%d', delimiter="\n")
 
-    shutil.move(tif_processed_dir, newdir + "tif_processed/")
-    shutil.move(tif_out_dir, newdir + "tif_out/")
-    shutil.move(tif_dir, newdir + "Tif/")
+
+    # what is the purpose of these lines?????
+    # i think they are do-nothing. TURNNING OFF. see if it breaks anything
+    #shutil.move(tif_processed_dir, newdir + "tif_processed/")
+    #shutil.move(tif_out_dir, newdir + "tif_out/")
+    #shutil.move(tif_dir, newdir + "Tif/")
 
 
 
