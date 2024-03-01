@@ -41,7 +41,8 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
 
     # initialize python-to-imagej bridge
     # TODO: research if it is possible to get this to work in "headless" mode to suppress output. Citrix GUI is unusable due to ImageJ spam while working
-    # code FAILS when imagej is in headless mode
+    # code FAILS when imagej is in h
+    # eadless mode
     # it is recreating the previously seen error, where, for each region, the "tif" directory is populated, but the "tif_out" and "tif_processed" are NOT populated, and no csv results are created either
     # this fails for ALL regions, does not even succeed for the first in the list
     ij = imagej.init(r'K:\CIVM_Apps\Fiji.app', mode='interactive')
@@ -71,6 +72,10 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
     print('image vExtentMin:', vExtentMin)
     print('image vExtentMax:', vExtentMax, flush=True)
 
+    # load in label nhdr file. moved from mainalgor so the load step is not repeated N times
+    label_data, label_nhdr = nrrd.read(label_nhdr_path)
+    label_data = label_data[::-1, ::-1, :].astype(int)
+
     for region_name in roi_dict:
         label = roi_dict[region_name]["labels"]
         classifier = roi_dict[region_name]["classifier"]
@@ -78,7 +83,7 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
         volume_avgbar = roi_dict[region_name]["volume_avgbar"]
         try:
             # what does an error actually mean in this case?
-            mainAlgor(label_nhdr_path, label, classifier, work_dir, N=30, volume_bar=volume_bar, volume_avgbar=volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img, ij=ij)
+            mainAlgor(label_nhdr, label_data, label, classifier, work_dir, N=30, volume_bar=volume_bar, volume_avgbar=volume_avgbar, vExtentMin=vExtentMin, vExtentMax=vExtentMax, vExtentMin2=vExtentMin2, img=img, ij=ij)
         except:
             # this does not really work. I got an error, but I think (?) that the imagej process didn't die itself and tried to keep going.
             print("ERROR in neuron counting for ROI: {}".format(region_name))
@@ -102,7 +107,7 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
 Yuqi thinks it's better to make this below:
 Write the script as a function, and make the regions as a large dictionary
 """
-def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: int = 10, volume_bar: int = 20, volume_avgbar: int = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None, vServer=None, vImarisLib=None, ij=None):
+def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: int = 10, volume_bar: int = 20, volume_avgbar: int = 100, vExtentMin=None, vExtentMax=None, vExtentMin2=None, img=None, vServer=None, vImarisLib=None, ij=None):
 #def mainAlgor(label,classifier, N = 10, volume_bar = 20, volume_avgbar = 100):
     """# WHAT DOES VOLUME_VAR AND VOLUME_AVGBAR DO? IMPORTANT?
     ### label: list, classifier: path str, volume_bar: a num that represents the average volume size
@@ -114,16 +119,9 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
         print("No ImageJ bridge found. Reinitializing now.", flush=True)
         ij = imagej.init(r'K:\CIVM_Apps\Fiji.app', mode='interactive')
 
-    # unnecessary code
-    #exec(open(r"K:\ProjectSpace\yt133\codes\Compilation of cell counting\5xFAD\CountingCodes\Auto_ver\ij_classifier.py").read())
-    #exec(open(r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_classifier.py").read())
-    #fiji=r"K:\CIVM_Apps\Fiji.app\ImageJ-win64.exe".replace('\\','/')
-
     macro_path = r"K:\workstation\code\shared\img_processing\NeuronCounting\ij_macro\macroscript.ijm" #where you save your macro
 
-    # TODO: use the label_nhdr file to get the voxel resolution of label files. this number is currently hard-coded below
     # TODO: this is NOT necessary to reaload this nrrd every time, load it in the launch_imaris function, and then pass the nhdr dict down here
-    label_data, label_nhdr = nrrd.read(label_nhdr_file)
     # list comprehension to pull voxel sizes in um from the nrrd header
     # grab the elements from diagonal, *1000 to convert from mm to um, absolute value to make positive, and then cast to integer
     dir_array = label_nhdr['space directions']
@@ -132,7 +130,7 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
     # this indexing starts from the end and goes all the way. i.e. reverse the first 2 dimensions and keep the third the same
     # TODO: this should also go up into the launch_imaris_and... function. load the data, make it righteous, and then pass it down here to find the ROI
     # this isn't a bottleneck, but is a waste of resources to reload that dataset every iteration
-    label_data = label_data[::-1, ::-1, :].astype(int)  # this im will be sent as a variable
+      # this im will be sent as a variable
 
     # I don't think we ever actually use this after the initialization?
     if vServer is None or vImarisLib is None:
@@ -144,26 +142,26 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
         v = vImarisLib.GetApplication(101)
 
     if len(label) == 1:
-        newdir = out_dir+str(label[0])+"/"
+        newdir = out_dir + str(label[0]) + "/"
     elif len(label) > 1:
         # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
         newdir = out_dir + str(label[0]) + '-' + str(label[-1]) + '/'
     if not os.path.exists(newdir):
         os.makedirs(newdir)
-    folder = newdir + "Tif/"
-    output = newdir + "tif_out/"
-    processed = newdir + "tif_processed/"
+    tif_dir = newdir + "Tif/"
+    tif_out_dir = newdir + "tif_out/"
+    tif_processed_dir = newdir + "tif_processed/"
 
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    if not os.path.exists(output):
-        os.makedirs(output)
-    if not os.path.exists(processed):
-        os.makedirs(processed)
+    if not os.path.exists(tif_dir):
+        os.makedirs(tif_dir)
+    if not os.path.exists(tif_out_dir):
+        os.makedirs(tif_out_dir)
+    if not os.path.exists(tif_processed_dir):
+        os.makedirs(tif_processed_dir)
 
     print("imagej macro arguments:")
-    print(f" folder={folder} output={output} processed={processed} macro_path={macro_path}", flush=True)
-    ij_macro, args = ij_classifier.save_classifier_macro(folder,output,processed,classifier,macro_path,N=N)
+    print(f" folder={tif_dir} output={tif_out_dir} processed={tif_processed_dir} macro_path={macro_path}", flush=True)
+    ij_macro, args = ij_classifier.save_classifier_macro(tif_dir,tif_out_dir,tif_processed_dir,classifier,macro_path,N=N)
 
     num = 0
     s = [6, 6, 6]  # Make sure this cube is larger than subvolume. The current cube size is (15um * 10)^3
@@ -215,7 +213,7 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
         #np.array(subvol).astype('int16').tofile(folder+'Region0.raw') #works
         print(type(subvol))
         # this filename variable is only used right here, in the next two lines.
-        filename = folder + 'Region_' + str(i) + '.tif'
+        filename = tif_dir + 'Region_' + str(i) + '.tif'
         imwrite(filename, np.float32(subvol), imagej=True,
                 metadata={'spacing': 4, 'unit': 'um', 'axes': 'ZYX'},
                 resolution = (1/1.8, 1/1.8))  # ZYX axis is required by Imagej. Without ImageJ=True, there will be some annoying options and changing 'axes' doesn't work either.
@@ -231,25 +229,27 @@ def mainAlgor(label_nhdr_file: str, label: list, classifier, out_dir: str, N: in
     #volume_avgbar=100 #This number is the volume/pixel of a typical neuron and depends on brain regions. I suggest users observe the size of the neurons of tiff files before deciding this number.
     num_neuron = []
     for i in range(N):
-        image = imread(processed + "morpho_" + str(i) + ".tif")
+        image = imread(tif_processed_dir + "morpho_" + str(i) + ".tif")
         N_n = image.max()  # the number of labels i.e. the number of individual neurons
         for j in range(1, image.max() + 1):  # j here is the integer label, range in [1,max]
             if image.size - np.count_nonzero(image-j) > 10*volume_avgbar:
                 N_n = N_n - 1  # if the component is too large, then it's unlikely to be neuron. Should be deleted from the count.
             elif image.size - np.count_nonzero(image-j) < volume_bar:
-                N_n = N_n -1  # if too small, count --1
+                N_n = N_n - 1  # if too small, count --1
             elif image.size - np.count_nonzero(image-j) > volume_avgbar:
                 N_n = N_n + np.floor((image.size - np.count_nonzero(image-j))/volume_avgbar) - 1  # if the volume is several times bigger than 1 typical neuron, then the volume/typical volume is regarded as the actual neuron numbers in the blob
         num_neuron.append(N_n)
 
+
+    np.savetxt(out_csv_file, num_neuron, fmt='%d', delimiter="\n")
     if len(label) == 1:
         np.savetxt(out_dir + str(label[0]) + "_counts.csv", num_neuron, fmt='%d', delimiter="\n")
     elif len(label) > 1:
         np.savetxt(out_dir+str(label[0]) + '-'+str(label[-1]) + "_counts.csv", num_neuron, fmt='%d', delimiter="\n")
 
-    shutil.move(processed, newdir + "tif_processed/")
-    shutil.move(output, newdir + "tif_out/")
-    shutil.move(folder, newdir + "Tif/")
+    shutil.move(tif_processed_dir, newdir + "tif_processed/")
+    shutil.move(tif_out_dir, newdir + "tif_out/")
+    shutil.move(tif_dir, newdir + "Tif/")
 
 
 
