@@ -8,6 +8,7 @@ from skimage.io import imread
 import os
 import shutil
 import imagej
+import json
 
 # TODO: clean up ice clients
 #https://stackoverflow.com/questions/41462415/python-communicator-not-destroyed-during-global-destruction
@@ -137,9 +138,9 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
         # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
         newdir = "{}/{}-{}".format(out_dir, str(label[0]), str(label[-1]))
         out_csv_file = "{}/{}-{}_counts.csv".format(out_dir, str(label[0]), str(label[-1]))
-    tif_dir = "{}/tif".format(newdir)
-    tif_out_dir = "{}/tif_out".format(newdir)
-    tif_processed_dir = "{}/tif_processed".format(newdir)
+    tif_dir = "{}/tif/".format(newdir)
+    tif_out_dir = "{}/tif_out/".format(newdir)
+    tif_processed_dir = "{}/tif_processed/".format(newdir)
 
     # os.makedirs recursively makes all parent directories, and exist_ok=True removes need for if exists check
     os.makedirs(tif_dir, exist_ok=True)
@@ -215,8 +216,6 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
                 metadata={'spacing': 4, 'unit': 'um', 'axes': 'ZYX'},
                 resolution = (1/1.8, 1/1.8))  # ZYX axis is required by Imagej. Without ImageJ=True, there will be some annoying options and changing 'axes' doesn't work either.
 
-
-    #ij = imagej.init(r'K:\CIVM_Apps\Fiji.app',mode='interactive')
     ij.ui().showUI()
     result = ij.py.run_macro(ij_macro,args)
 
@@ -241,117 +240,23 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
     np.savetxt(out_csv_file, num_neuron, fmt='%d', delimiter="\n")
 
 
-    # what is the purpose of these lines?????
-    # i think they are do-nothing. TURNNING OFF. see if it breaks anything
-    #shutil.move(tif_processed_dir, newdir + "tif_processed/")
-    #shutil.move(tif_out_dir, newdir + "tif_out/")
-    #shutil.move(tif_dir, newdir + "Tif/")
-
-
-
-#Above is the function. Below is defining all regions and call function
-# TODO: maybe move this dict into its own file?
-regions = {
-    "Orbital": {
-        "labels": [6],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "PrimarySomatosensory": {
-        "labels": [16],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "SupplementalSomatosensory": {
-        "labels": [18],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "Auditory": {
-        "labels": [20],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "Retroplenial": {
-        "labels": [24],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\', '/'),
-        "volume_bar": 15,
-        "volume_avgbar": 100
-    },
-    "PrimaryVisualArea": {
-        "labels": [26],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "Entorhinal": {
-        "labels": [27],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "Subiculum": {
-        "labels": [28],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "CA1": {
-        "labels": [31],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\', '/'),
-        "volume_bar": 10,
-        "volume_avgbar": 100
-    },
-    "CA3": {
-        "labels": [32],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\5xFAD\03subiculum.classifier".replace('\\', '/'),
-        "volume_bar": 10,
-        "volume_avgbar": 100
-    },
-    "BLA": {
-        "labels": [41],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\191209_BLA\BLAc_.classifier".replace('\\', '/'),
-        "volume_bar": 10,
-        "volume_avgbar": 100
-    },
-    "LGd": {
-        "labels": [82],
-        "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\', '/'),
-        "volume_bar": 20,
-        "volume_avgbar": 100
-    },
-    "Thalamus": {
-        "labels": [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86],
-        "classifier": r"K:/ProjectSpace/yt133/Labelmap/191209_BLA/BLAc_.classifier".replace('\\', '/'),
-        "volume_bar": 10,
-        "volume_avgbar": 100
-    },
-    #Something weird happens with Thalamus, a lot of java log, so Yuqi set up the last entry.
-    # "delete": {
-        # "labels": [83],
-        # "classifier": r"K:\workstation\code\shared\img_processing\NeuronCounting\classifiers\200316auditory\short1.classifier".replace('\\','/'),
-        # "volume_bar": 20,
-        # "volume_avgbar": 100
-    # }
-}
-
-
 def main():
     label_imaris_path = sys.argv[1]
     label_nhdr_path = sys.argv[2]
     image_imaris_path = sys.argv[3]
-    if len(sys.argv > 4):
-        work_dir = sys.argv[4]
+    label_dict_path = sys.argv[4]
+    if len(sys.argv) > 5:
+        work_dir = sys.argv[5]
     else:
         dirname = os.path.dirname(image_imaris_path)
         # TODO: grab spec id and contrast out of the file path
         work_dir = "{}/NeuronCounting/{}/{}".format(dirname, "201026-1_1", "PV")
 
+    with open(label_dict_path,"r") as f:
+        regions = json.load(f)
+
     launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir)
 
 if __name__ == "__main__":
     main()
+
