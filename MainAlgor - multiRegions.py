@@ -250,7 +250,16 @@ def main():
     else:
         dirname = os.path.dirname(image_imaris_path)
         # TODO: grab spec id and contrast out of the file path
-        work_dir = "{}/NeuronCounting/{}/{}".format(dirname, "201026-1_1", "PV")
+        spec_id = "201026-1_1"
+        contrast = "PV"
+        temp = os.path.basename(image_imaris_path)
+        # trim .ims off of the filename if the filename ends with .ims. Else do nothing
+        temp = temp[:-4] if temp.endswith('.ims') else temp
+        temp_split = temp.split("_")
+        spec_id = "{}_{}".format(temp_split[0], temp_split[1])
+        contrast = temp_split[-1]
+        work_dir = "{}/NeuronCounting/{}/{}".format(dirname, spec_id, contrast)
+    print(work_dir); exit()
 
     with open(label_dict_path,"r") as f:
         regions = json.load(f)
