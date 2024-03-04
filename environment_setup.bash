@@ -30,5 +30,4 @@ then
 fi;
 # this is how you open a new python shell (from git bash shell)
 #start python
-
-python MainAlgor\ -\ multiRegions.py;
+#python MainAlgor\ -\ multiRegions.py;
