@@ -13,6 +13,7 @@ work_dir="B:/ProjectSpace/hmm56/NeuronCounting_test/201026-1_1_PV"
 
 # your regions dict should have the same basename as your imaris file ${specid}_${contrast}.ims vs ${specid}_${contrast}.json
 # and it should be in the ${NEURON_COUNTING_CODE_FOLDER}/region_dictionaries folder
+# TODO: maybe move this logic of finding json to MainAlgor main function, user can optionally override it with an input argument (just like how work_dir is handled)
 temp=$(basename ${image_imaris_path});
 temp=${temp%%.ims};
 regions_dict_path="../region_dictionaries/${temp}.json";
@@ -22,3 +23,6 @@ regions_dict_path="../region_dictionaries/${temp}.json";
 # script will create new subfolders within work_dir, one for each ROI to process.
 # this will be overridden if you provide 4 arguments
 python "../MainAlgor - multiRegions.py" ${label_imaris_path} ${label_nhdr_path} ${image_imaris_path} ${regions_dict_path} ${work_dir};
+
+# this one will create
+#python "../MainAlgor - multiRegions.py" ${label_imaris_path} ${label_nhdr_path} ${image_imaris_path} ${regions_dict_path}
