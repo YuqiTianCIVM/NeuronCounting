@@ -340,30 +340,18 @@ regions = {
 }
 
 
-"""# label nhdr file. used for grabbing voxel indices of a certain ROI
-#root needs to be updated with different specimens
-# INPUT ARGUMENTS GET RID OF THESE!!
-project_code="22.gaj.49";
-strain="BXD77";
-specimen_id="DMBA";
-contrast="PV";
-runno="N59128NLSAM";
-# pattern for 20.5xFAD
-label_nhdr_path="B:\{}\{}\{}\Aligned-Data\labels\RCCF\{}_labels.nhdr".format(project_code,strain,specimen_id,runno)
-# pattern for 22.gaj.49
-label_nhdr_path="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format(project_code,"DMBA")"""
+def main():
+    label_imaris_path = sys.argv[1]
+    label_nhdr_path = sys.argv[2]
+    image_imaris_path = sys.argv[3]
+    if len(sys.argv > 4):
+        work_dir = sys.argv[4]
+    else:
+        dirname = os.path.dirname(image_imaris_path)
+        # TODO: grab spec id and contrast out of the file path
+        work_dir = "{}/NeuronCounting/{}/{}".format(dirname, "201026-1_1", "PV")
 
+    launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir)
 
-# hard-coded test data
-label_imaris_path = sys.argv[1]
-label_nhdr_path = sys.argv[2]
-image_imaris_path = sys.argv[3]
-if len(sys.argv > 4):
-    work_dir = sys.argv[4]
-else:
-    dirname = os.path.dirname(image_imaris_path)
-    # TODO: grab spec id and contrast out of the file path
-    work_dir = "{}/NeuronCounting/{}/{}".format(dirname, "201026-1_1", "PV")
-
-launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir)
-
+if __name__ == "__main__":
+    main()
