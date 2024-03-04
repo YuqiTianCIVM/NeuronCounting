@@ -28,6 +28,7 @@ if ! which mvn &> /dev/null
 then
     export PATH="$PATH:$(cygpath -u $WORKSTATION_AUX/apache-maven-3.9.6/bin)"
 fi;
+# this is how you open a new python shell (from git bash shell)
 #start python
 
 python MainAlgor\ -\ multiRegions.py;

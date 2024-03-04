@@ -131,15 +131,15 @@ def mainAlgor(label_nhdr, label_data, label: list, classifier, out_dir: str, N: 
         v = vImarisLib.GetApplication(101)
 
     if len(label) == 1:
-        newdir = out_dir + str(label[0]) + "/"
-        out_csv_file = out_dir + str(label[0]) + "_counts.csv"
+        newdir = "{}/{}".format(out_dir, str(label[0]))
+        out_csv_file = "{}/{}_counts.csv".format(out_dir, str(label[0]))
     elif len(label) > 1:
         # this naming makes an assumption that when analyzing muyltipl regions at once, that THEY ARE SEQUENTIAL. what if we wanted toi use rois [5,12,41,99]
-        newdir = out_dir + str(label[0]) + '-' + str(label[-1]) + '/'
-        out_csv_file = out_dir + str(label[0]) + '-' + str(label[-1]) + "_counts.csv"
-    tif_dir = newdir + "Tif/"
-    tif_out_dir = newdir + "tif_out/"
-    tif_processed_dir = newdir + "tif_processed/"
+        newdir = "{}/{}-{}".format(out_dir, str(label[0]), str(label[-1]))
+        out_csv_file = "{}/{}-{}_counts.csv".format(out_dir, str(label[0]), str(label[-1]))
+    tif_dir = "{}/tif".format(newdir)
+    tif_out_dir = "{}/tif_out".format(newdir)
+    tif_processed_dir = "{}/tif_processed".format(newdir)
 
     # os.makedirs recursively makes all parent directories, and exist_ok=True removes need for if exists check
     os.makedirs(tif_dir, exist_ok=True)
@@ -355,10 +355,15 @@ label_nhdr_path="B:\{}\{}\Aligned-Data\labels\RCCF\DMBA_RCCF_labels.nhdr".format
 
 
 # hard-coded test data
-label_imaris_path = "B:/22.gaj.49/DMBA/ims/labels/RCCF/DMBA_RCCF_labels.ims"
-label_nhdr_path = "B:/22.gaj.49/DMBA/Aligned-Data-RAS/labels/RCCF/DMBA_RCCF_labels.nhdr"
-image_imaris_path = "B:/22.gaj.49/DMBA/ims/LSFM/201026-1_1_PV.ims"
-work_dir = "B:/{}/DMBA/ims/LSFM/NeuronCounting/{}/{}".format("22.gaj.49", "201026-1_1", "PV")
+label_imaris_path = sys.argv[1]
+label_nhdr_path = sys.argv[2]
+image_imaris_path = sys.argv[3]
+if len(sys.argv > 4):
+    work_dir = sys.argv[4]
+else:
+    dirname = os.path.dirname(image_imaris_path)
+    # TODO: grab spec id and contrast out of the file path
+    work_dir = "{}/NeuronCounting/{}/{}".format(dirname, "201026-1_1", "PV")
 
 launch_imaris_and_open_data(image_imaris_path, label_imaris_path, label_nhdr_path, regions, work_dir)
 
