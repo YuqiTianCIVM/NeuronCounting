@@ -15,7 +15,8 @@ import json
 
 # these append statements are required to correctly find ImarisLib and all of its dependencies
 # this sys.path.append is the correct way to modify your PYTHONPATH variable
-sys.path.append(r'C:\Program Files\Bitplane\Imaris 9.9.0\XT\python3'.replace(r'\\', '/'))
+#sys.path.append(r'C:\Program Files\Bitplane\Imaris 9.9.0\XT\python3'.replace(r'\\', '/'))
+sys.path.append(r'C:\Program Files\Bitplane\Imaris 10.1.1\XT\python3'.replace(r'\\', '/'))
 sys.path.insert(0, 'k:/workstation/code/shared/pipeline_utilities/imaris')
 import ImarisLib
 import ij_classifier
@@ -31,7 +32,7 @@ def GetServer():
 
 def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, label_nhdr_path: str, roi_dict: dict, work_dir: str):
     # Popen is non blocking. Is the under the hood function that drives subprocess.run()
-    imaris_process = subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.0.0\\Imaris.exe', 'id101'])
+    imaris_process = subprocess.Popen(['C:\\Program Files\\Bitplane\\Imaris 10.1.1\\Imaris.exe', 'id101'])
     # give imaris enough time to open
     time.sleep(10)
 
@@ -68,6 +69,7 @@ def launch_imaris_and_open_data(image_imaris_path: str, label_imaris_path: str, 
     img = v.GetImage(0)
     vExtentMin = [img.GetExtendMinX(), img.GetExtendMinY(), img.GetExtendMinZ()]
     vExtentMax = [img.GetExtendMaxX(), img.GetExtendMaxY(), img.GetExtendMaxZ()]
+
 
     print('label vExtentMin:', vExtentMin2)
     print('image vExtentMin:', vExtentMin)
@@ -259,7 +261,6 @@ def main():
         spec_id = "{}_{}".format(temp_split[0], temp_split[1])
         contrast = temp_split[-1]
         work_dir = "{}/NeuronCounting/{}/{}".format(dirname, spec_id, contrast)
-    print(work_dir); exit()
 
     with open(label_dict_path,"r") as f:
         regions = json.load(f)
