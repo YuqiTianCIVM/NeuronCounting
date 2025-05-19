@@ -1,5 +1,5 @@
 # NeuronCounting
-The code serves as a supplemental to our paper submitted to Frontiers Neurosceince. Please cite our bioxiv version for now if you find our method helpful. 
+The code serves as a supplemental to our paper submitted to Frontiers Neurosceince. Please cite https://doi.org/10.3389/fnins.2023.1223226 if you find our method helpful. 
 
 The main code consists of several modules:
 
